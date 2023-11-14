@@ -1,6 +1,6 @@
 import * as React from 'react';
 import deepEqual from 'fast-deep-equal';
-import * as PropTypes from 'prop-types';
+// import * as PropTypes from 'prop-types';
 
 function normalizeHtml(str: string): string {
   return str && str.replace(/&nbsp;|\u202F|\u00A0/g, ' ').replace(/<br \/>/g, '<br>');
@@ -13,9 +13,9 @@ function replaceCaret(el: HTMLElement) {
   // do not move caret if element was not focused
   const isTargetFocused = document.activeElement === el;
   if (target !== null && target.nodeValue !== null && isTargetFocused) {
-    var sel = window.getSelection();
+    const sel = window.getSelection();
     if (sel !== null) {
-      var range = document.createRange();
+      const range = document.createRange();
       range.setStart(target, target.nodeValue.length);
       range.collapse(true);
       sel.removeAllRanges();
@@ -29,13 +29,13 @@ function replaceCaret(el: HTMLElement) {
  * A simple component for an html element with editable contents.
  */
 export default class ContentEditable extends React.Component<Props> {
-  lastHtml: string = this.props.html;
+  lastValue: string = this.props.value;
   el: any = typeof this.props.innerRef === 'function' ? { current: null } : React.createRef<HTMLElement>();
 
   getEl = () => (this.props.innerRef && typeof this.props.innerRef !== 'function' ? this.props.innerRef : this.el).current;
 
   render() {
-    const { tagName, html, innerRef, ...props } = this.props;
+    const { tagName, value, innerRef, ...props } = this.props;
 
     return React.createElement(
       tagName || 'div',
@@ -50,7 +50,7 @@ export default class ContentEditable extends React.Component<Props> {
         onKeyUp: this.props.onKeyUp || this.emitChange,
         onKeyDown: this.props.onKeyDown || this.emitChange,
         contentEditable: !this.props.disabled,
-        dangerouslySetInnerHTML: { __html: html }
+        dangerouslySetInnerHTML: { __html: value }
       },
       this.props.children);
   }
@@ -58,6 +58,10 @@ export default class ContentEditable extends React.Component<Props> {
   shouldComponentUpdate(nextProps: Props): boolean {
     const { props } = this;
     const el = this.getEl();
+
+    console.log(el.outerText, 9999)
+
+    console.log('shouldComponentUpdate')
 
     // We need not rerender if the change of props simply reflects the user's edits.
     // Rerendering in this case would make the cursor/caret jump
@@ -67,7 +71,8 @@ export default class ContentEditable extends React.Component<Props> {
 
     // ...or if html really changed... (programmatically, not by user edit)
     if (
-      normalizeHtml(nextProps.html) !== normalizeHtml(el.innerHTML)
+      nextProps.value  !== el.outerText
+      // normalizeHtml(nextProps.html) !== normalizeHtml(el.innerHTML)
     ) {
       return true;
     }
@@ -87,10 +92,10 @@ export default class ContentEditable extends React.Component<Props> {
 
     // Perhaps React (whose VDOM gets outdated because we often prevent
     // rerendering) did not update the DOM. So we update it manually now.
-    if (this.props.html !== el.innerHTML) {
-      el.innerHTML = this.props.html;
+    if (this.props.value !== el.outerText) {
+      el.outerText = this.props.value;
     }
-    this.lastHtml = this.props.html;
+    this.lastValue = this.props.value;
     replaceCaret(el);
   }
 
@@ -98,32 +103,33 @@ export default class ContentEditable extends React.Component<Props> {
     const el = this.getEl();
     if (!el) return;
 
-    const html = el.innerHTML;
-    if (this.props.onChange && html !== this.lastHtml) {
+    const value = el.outerText;
+    if (this.props.onChange && value !== this.lastValue) {
       // Clone event with Object.assign to avoid
       // "Cannot assign to read only property 'target' of object"
       const evt = Object.assign({}, originalEvt, {
         target: {
-          value: html
+          value
         }
       });
       this.props.onChange(evt);
     }
-    this.lastHtml = html;
+    this.lastValue = value;
   }
 
-  static propTypes = {
-    html: PropTypes.string.isRequired,
-    onChange: PropTypes.func,
-    disabled: PropTypes.bool,
-    tagName: PropTypes.string,
-    className: PropTypes.string,
-    style: PropTypes.object,
-    innerRef: PropTypes.oneOfType([
-      PropTypes.object,
-      PropTypes.func,
-    ])
-  }
+  // static propTypes = {
+  //   // html: PropTypes.string.isRequired,
+  //   value: PropTypes.string,
+  //   onChange: PropTypes.func,
+  //   disabled: PropTypes.bool,
+  //   tagName: PropTypes.string,
+  //   className: PropTypes.string,
+  //   style: PropTypes.object,
+  //   innerRef: PropTypes.oneOfType([
+  //     PropTypes.object,
+  //     PropTypes.func,
+  //   ])
+  // }
 }
 
 export type ContentEditableEvent = React.SyntheticEvent<any, Event> & { target: { value: string } };
@@ -131,10 +137,10 @@ type Modify<T, R> = Pick<T, Exclude<keyof T, keyof R>> & R;
 type DivProps = Modify<JSX.IntrinsicElements["div"], { onChange: ((event: ContentEditableEvent) => void) }>;
 
 export interface Props extends DivProps {
-  html: string,
   disabled?: boolean,
   tagName?: string,
   className?: string,
+  value: string,
   style?: Object,
   innerRef?: React.RefObject<HTMLElement> | Function,
 }
